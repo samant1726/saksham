@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Galaxy | Logistics & Commerce</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap');
+
+        /* CORE THEME */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Quicksand', sans-serif; }
+        body {
+            background: linear-gradient(-45deg, #020c1b, #0a192f, #0072ff, #7f00ff, #e100ff, #2d0036);
+            background-size: 400% 400%;
+            animation: galaxyFlow 12s ease infinite;
+            min-height: 100vh; color: white; overflow-x: hidden;
+        }
+        @keyframes galaxyFlow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+        /* NAVBAR */
+        .navbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 50px; background: rgba(0,0,0,0.5); backdrop-filter: blur(20px);
+            position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* CARDS & UI */
+        .container { max-width: 1300px; margin: 0 auto; padding: 40px 20px; display: none; }
+        .container.active { display: block; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95); color: #1a1a1a;
+            padding: 30px; border-radius: 30px; box-shadow: 0 15px 40px rgba(0,0,0,0.3); margin-bottom: 25px;
+        }
+        .neon-btn {
+            width: 100%; padding: 15px; border-radius: 50px; border: none;
+            background: linear-gradient(135deg, #00c6ff, #7f00ff);
+            color: white; font-weight: 800; cursor: pointer; transition: 0.3s;
+        }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 12px; border: 2px solid #eee; }
+
+        /* TRACKING PROGRESS BAR */
+        .track-container { margin-top: 20px; display: flex; justify-content: space-between; position: relative; }
+        .track-container::before { content: ''; position: absolute; top: 15px; left: 0; width: 100%; height: 4px; background: #eee; z-index: 1; }
+        .track-step { z-index: 2; text-align: center; font-size: 0.7rem; color: #999; width: 25%; }
+        .track-dot { width: 30px; height: 30px; background: #eee; border-radius: 50%; margin: 0 auto 5px; border: 4px solid white; transition: 0.5s; }
+        .active-step .track-dot { background: #0072ff; box-shadow: 0 0 15px #0072ff; }
+        .active-step { color: #0072ff; font-weight: 800; }
+
+        /* AUTH BOX */
+        #auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .auth-card { background: white; color: #1a1a1a; padding: 50px; border-radius: 40px; text-align: center; width: 400px; animation: float 5s infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+    </style>
+</head>
+<body>
+
+<div id="auth-overlay">
+    <div class="auth-card">
+        <h2 style="color:#7f00ff">NEXUS LOGIN</h2>
+        <input type="text" id="email" placeholder="Email / Admin ID">
+        <input type="password" id="pass" placeholder="Security Key">
+        <button class="neon-btn" onclick="login()">Sync Identity</button>
+    </div>
+</div>
+
+<div class="navbar" id="nav" style="display:none">
+    <div style="font-weight:800">NEXUS <span id="tag" style="font-size:0.6rem; background:#7f00ff; padding:2px 6px; border-radius:5px"></span></div>
+    <div style="display:flex; gap:20px" id="user-menu">
+        <button onclick="tab('shop')" style="background:none; border:none; color:white; cursor:pointer">Shop</button>
+        <button onclick="tab('cart')" style="background:none; border:none; color:white; cursor:pointer">Cart (<span id="count">0</span>)</button>
+        <button onclick="tab('track')" style="background:none; border:none; color:white; cursor:pointer">Tracking</button>
+    </div>
+    <button onclick="location.reload()" style="background:none; border:none; color:#ff416c; font-weight:700; cursor:pointer">Logout</button>
+</div>
+
+<div id="shop" class="container">
+    <h2 style="margin-bottom:20px">Interstellar Market</h2>
+    <div id="product-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:20px"></div>
+</div>
+
+<div id="cart" class="container">
+    <div class="glass-card" style="max-width:500px; margin:0 auto">
+        <h3>Checkout</h3>
+        <div id="items-list" style="margin:20px 0"></div>
+        <h2 id="total-price">Total: $0</h2>
+        <button class="neon-btn" onclick="showPay()">Finalize Order</button>
+    </div>
+</div>
+
+<div id="track" class="container">
+    <h2 style="margin-bottom:20px">Shipment Tracker</h2>
+    <div id="orders-list"></div>
+</div>
+
+<div id="admin" class="container">
+    <h2 style="margin-bottom:20px">Galaxy Command Dashboard</h2>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px">
+        <div class="glass-card"><canvas id="revChart"></canvas></div>
+        <div class="glass-card">
+            <h3>Inventory Management</h3>
+            <input type="text" id="adm-n" placeholder="Product Name">
+            <input type="number" id="adm-p" placeholder="Price">
+            <button class="neon-btn" onclick="addProduct()">Add Item</button>
+        </div>
+    </div>
+</div>
+
+<div id="pay-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:5000; justify-content:center; align-items:center">
+    <div class="glass-card" style="width:400px">
+        <h3>Secure Payment</h3>
+        <select id="p-method" onchange="toggleP()">
+            <option value="card">Debit/Credit Card</option>
+            <option value="upi">UPI</option>
+        </select>
+        <div id="card-in"><input type="text" placeholder="Card Number" maxlength="16"></div>
+        <div id="upi-in" style="display:none"><input type="text" placeholder="upi@handle"></div>
+        <button class="neon-btn" onclick="completeOrder()">Pay Now</button>
+        <button onclick="this.parentElement.parentElement.style.display='none'" style="margin-top:10px; background:none; border:none; width:100%">Cancel</button>
+    </div>
+</div>
+
+<script>
+    let products = JSON.parse(localStorage.getItem('nx_p')) || [{id:1, name:"Nova Watch", price:120, stock:10}, {id:2, name:"Quantum Core", price:500, stock:2}];
+    let orders = JSON.parse(localStorage.getItem('nx_o')) || [];
+    let cart = [];
+    let currentUser = null;
+
+    function login() {
+        const e = document.getElementById('email').value;
+        document.getElementById('auth-overlay').style.display = 'none';
+        document.getElementById('nav').style.display = 'flex';
+        if(e === 'admin@nexus.com') {
+            currentUser = {role:'admin'};
+            tab('admin');
+            initAdmin();
+        } else {
+            currentUser = {role:'user'};
+            tab('shop');
+            renderShop();
+        }
+        document.getElementById('tag').innerText = currentUser.role.toUpperCase();
+    }
+
+    function tab(id) {
+        document.querySelectorAll('.container').forEach(c => c.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id === 'track') renderTracking();
+        if(id === 'cart') renderCart();
+    }
+
+    function renderShop() {
+        document.getElementById('product-grid').innerHTML = products.map(p => `
+            <div class="glass-card">
+                <h3>${p.name}</h3>
+                <p style="color:#7f00ff; font-weight:800">$${p.price}</p>
+                <button class="neon-btn" style="padding:8px; margin-top:10px" onclick="addToCart(${p.id})">Add to Cart</button>
+            </div>
+        `).join('');
+    }
+
+    function addToCart(id) {
+        cart.push(products.find(p => p.id === id));
+        document.getElementById('count').innerText = cart.length;
+    }
+
+    function renderCart() {
+        let t = cart.reduce((s,i) => s + i.price, 0);
+        document.getElementById('items-list').innerHTML = cart.map(i => `<p>${i.name} - $${i.price}</p>`).join('');
+        document.getElementById('total-price').innerText = `Total: $${t}`;
+    }
+
+    function showPay() { document.getElementById('pay-modal').style.display = 'flex'; }
+    function toggleP() {
+        let m = document.getElementById('p-method').value;
+        document.getElementById('card-in').style.display = m === 'card' ? 'block' : 'none';
+        document.getElementById('upi-in').style.display = m === 'upi' ? 'block' : 'none';
+    }
+
+    function completeOrder() {
+        let order = {
+            id: "#NX" + Math.floor(Math.random()*9000),
+            items: [...cart],
+            status: 1, // 1: Proc, 2: Shipped, 3: Transit, 4: Deliv
+            date: new Date().toLocaleDateString()
+        };
+        orders.push(order);
+        localStorage.setItem('nx_o', JSON.stringify(orders));
+        cart = [];
+        document.getElementById('count').innerText = 0;
+        document.getElementById('pay-modal').style.display = 'none';
+        alert("Shipment Dispatched!");
+        tab('track');
+    }
+
+    function renderTracking() {
+        document.getElementById('orders-list').innerHTML = orders.map(o => `
+            <div class="glass-card">
+                <div style="display:flex; justify-content:space-between">
+                    <b>Order ${o.id}</b>
+                    <span>${o.date}</span>
+                </div>
+                <div class="track-container">
+                    <div class="track-step ${o.status >= 1 ? 'active-step' : ''}"><div class="track-dot"></div>Processing</div>
+                    <div class="track-step ${o.status >= 2 ? 'active-step' : ''}"><div class="track-dot"></div>Shipped</div>
+                    <div class="track-step ${o.status >= 3 ? 'active-step' : ''}"><div class="track-dot"></div>In Transit</div>
+                    <div class="track-step ${o.status >= 4 ? 'active-step' : ''}"><div class="track-dot"></div>Delivered</div>
+                </div>
+            </div>
+        `).reverse().join('');
+    }
+
+    function initAdmin() {
+        new Chart(document.getElementById('revChart'), {
+            type: 'line',
+            data: { labels: ['Jan','Feb','Mar','Apr'], datasets: [{label: 'Revenue', data:[200, 500, 800, 1200], borderColor: '#00c6ff'}]}
+        });
+    }
+
+    function addProduct() {
+        let n = document.getElementById('adm-n').value;
+        let p = document.getElementById('adm-p').value;
+        if(n && p) {
+            products.push({id: Date.now(), name: n, price: parseInt(p)});
+            localStorage.setItem('nx_p', JSON.stringify(products));
+            alert("Added!");
+        }
+    }
+</script>
+</body>
+</html><div class="glass-card" style="grid-column: span 2;">
+    <h3>Active Space Shipments</h3>
+    <p style="font-size: 0.8rem; color: #666; margin-bottom: 15px;">Update status to notify users across the nexus.</p>
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 2px solid #eee;">
+                <th style="padding: 10px;">Order ID</th>
+                <th>Items</th>
+                <th>Current Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="admin-orders-table">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    /* --- NEW ADMIN LOGISTICS LOGIC --- */
+
+    // Update the existing initAdmin function to include the order renderer
+    function initAdmin() {
+        renderAdminOrders();
+        new Chart(document.getElementById('revChart'), {
+            type: 'line',
+            data: { 
+                labels: ['Jan','Feb','Mar','Apr'], 
+                datasets: [{label: 'Revenue', data:[200, 500, 800, 1200], borderColor: '#00c6ff', tension: 0.4}]
+            }
+        });
+    }
+
+    function renderAdminOrders() {
+        const tableBody = document.getElementById('admin-orders-table');
+        if (!tableBody) return;
+
+        if (orders.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: #999;">No active missions found.</td></tr>`;
+            return;
+        }
+
+        tableBody.innerHTML = orders.map((o, index) => {
+            const statusLabels = ["", "Processing", "Shipped", "In Transit", "Delivered"];
+            return `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 15px;"><b>${o.id}</b></td>
+                    <td>${o.items.length} Items</td>
+                    <td>
+                        <span style="color: ${o.status === 4 ? '#10b981' : '#7f00ff'}; font-weight: bold;">
+                            ${statusLabels[o.status]}
+                        </span>
+                    </td>
+                    <td>
+                        ${o.status < 4 ? 
+                            `<button class="neon-btn" style="padding: 5px 12px; font-size: 0.7rem; width: auto;" 
+                                onclick="advanceStatus(${index})">
+                                Advance to ${statusLabels[o.status + 1]}
+                             </button>` 
+                            : `<span style="color: #10b981;">✔️ Mission Complete</span>`
+                        }
+                    </td>
+                </tr>
+            `;
+        }).reverse().join('');
+    }
+
+    function advanceStatus(index) {
+        // Reverse index logic because of .reverse() in mapping
+        const actualIndex = (orders.length - 1) - index; 
+        
+        if (orders[actualIndex].status < 4) {
+            orders[actualIndex].status += 1;
+            localStorage.setItem('nx_o', JSON.stringify(orders));
+            renderAdminOrders(); // Refresh Admin View
+            alert(`Order ${orders[actualIndex].id} updated!`);
+        }
+    }
+
+    // Ensure tab switching to admin refreshes the order list
+    const originalTabFunc = tab;
+    tab = function(id) {
+        originalTabFunc(id);
+        if(id === 'admin') renderAdminOrders();
+    };
+</script>
